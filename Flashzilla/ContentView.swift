@@ -45,6 +45,15 @@ struct ContentView: View {
                         .stacked(at: index, in: self.cards.count)
                     }
                 }
+                .allowsHitTesting(timeRemaining > 0)
+                
+                if cards.isEmpty {
+                    Button("Start again", action: resetCards)
+                        .padding()
+                        .background(Color.white)
+                        .foregroundColor(.black)
+                        .clipShape(Capsule())
+                }
             }
             
             if differentiateWithoutColor {
@@ -69,7 +78,6 @@ struct ContentView: View {
         }
         .onReceive(timer) { time in
             guard self.isActive else { return }
-            
             if self.timeRemaining > 0 {
                 self.timeRemaining -= 1
             }
@@ -78,12 +86,23 @@ struct ContentView: View {
             self.isActive = false
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            self.isActive = true
+            if self.cards.isEmpty == false {
+                self.isActive = true
+            }
         }
+    }
+    
+    func resetCards() {
+        cards = [Card](repeating: .example, count: 10)
+        timeRemaining = 100
+        isActive = true
     }
     
     func removeCard(at index: Int) {
         cards.remove(at: index)
+        if cards.isEmpty {
+            isActive = false
+        }
     }
 }
 
