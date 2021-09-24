@@ -45,11 +45,13 @@ struct CardView: View {
                     Text(card.prompt)
                         .font(.largeTitle)
                         .foregroundColor(.black)
+                        .padding()
                     
                     if isShowingAnswer {
                         Text(card.answer)
                             .font(.title)
                             .foregroundColor(.gray)
+                            .padding()
                     }
                 }
             }

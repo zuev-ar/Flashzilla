@@ -13,9 +13,10 @@ struct ContentView: View {
     @Environment(\.accessibilityEnabled) var accessibilityEnabled
     @Environment(\.accessibilityDifferentiateWithoutColor) var differentiateWithoutColor
     
-    @State private var cards = [Card](repeating: Card.example, count: 10)
+    @State private var cards = [Card]()
     @State private var timeRemaining = 100
     @State private var isActive = true
+    @State private var showingEditScreen = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -58,6 +59,24 @@ struct ContentView: View {
                         .clipShape(Capsule())
                 }
             }
+            
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        self.showingEditScreen = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                            .padding()
+                            .background(Color.black.opacity(0.7))
+                            .clipShape(Circle())
+                    }
+                }
+                Spacer()
+            }
+            .foregroundColor(.white)
+            .font(.largeTitle)
+            .padding()
             
             if differentiateWithoutColor || accessibilityEnabled {
                 VStack {
@@ -111,12 +130,25 @@ struct ContentView: View {
                 self.isActive = true
             }
         }
+        .onAppear(perform: resetCards)
+        .sheet(isPresented: $showingEditScreen, onDismiss: resetCards) {
+            EditCards()
+        }
+    }
+    
+    func loadData() {
+        if let data = UserDefaults.standard.data(forKey: "Cards") {
+            if let decoded = try? JSONDecoder().decode([Card].self, from: data) {
+                self.cards = decoded
+            }
+        }
     }
     
     func resetCards() {
-        cards = [Card](repeating: .example, count: 10)
         timeRemaining = 100
         isActive = true
+        loadData()
+        cards.shuffle()
     }
     
     func removeCard(at index: Int) {
