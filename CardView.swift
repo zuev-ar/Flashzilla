@@ -13,7 +13,7 @@ struct CardView: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) var differentiateWithoutColor
     
     let card: Card
-    var removal: (() -> Void)? = nil
+    var completion: ((_ deleteCard: Bool) -> Void)? = nil
     
     @State private var offset = CGSize.zero
     @State private var isShowingAnswer = false
@@ -26,13 +26,13 @@ struct CardView: View {
                     differentiateWithoutColor
                         ? Color.white
                         : Color.white
-                            .opacity(1 - Double(offset.width / 50))
+                        .opacity(abs(1 - Double(abs(offset.width) / 50)))
                 )
                 .background(
                     differentiateWithoutColor
                         ? nil
                         : RoundedRectangle(cornerRadius: 25, style: .continuous)
-                            .fill(offset.width > 0 ? Color.green : Color.red)
+                        .fill(offset.width > 0 ? Color.green : Color.red)
                 )
                 .shadow(radius: 10)
 
@@ -77,7 +77,7 @@ struct CardView: View {
                         } else {
                             self.feedback.notificationOccurred(.error)
                         }
-                        self.removal?()
+                        self.completion?(self.offset.width < 0)
                     } else {
                         self.offset = .zero
                     }
@@ -87,6 +87,35 @@ struct CardView: View {
             self.isShowingAnswer.toggle()
         }
         .animation(.spring())
+    }
+}
+
+extension View {
+    func customRoundedRectangle(differentiateWithoutColor: Bool, offset: CGSize) -> some View {
+        self.modifier(customModifier(differentiateWithoutColor: differentiateWithoutColor, offset: offset))
+    }
+}
+
+struct customModifier: ViewModifier {
+    let differentiateWithoutColor: Bool
+    let offset: CGSize
+    func body(content: Content) -> some View {
+        content
+        RoundedRectangle(cornerRadius: 25, style: .continuous)
+            .fill(
+                differentiateWithoutColor
+                    ? Color.white
+                    : Color.white
+                    .opacity(abs(1 - Double(abs(offset.width) / 50)))
+            )
+            .background(
+                differentiateWithoutColor
+                    ? nil
+                    : RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .fill(offset.width > 0 ? Color.green : Color.red)
+            )
+            .shadow(radius: 10)
+            
     }
 }
 

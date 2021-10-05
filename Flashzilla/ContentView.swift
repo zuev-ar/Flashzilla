@@ -8,6 +8,15 @@
 import CoreHaptics
 import SwiftUI
 
+enum ActiveSheet: Identifiable {
+    case first, second
+    
+    var id: Int {
+        hashValue
+    }
+    
+}
+
 struct ContentView: View {
     
     @Environment(\.accessibilityEnabled) var accessibilityEnabled
@@ -16,7 +25,9 @@ struct ContentView: View {
     @State private var cards = [Card]()
     @State private var timeRemaining = 100
     @State private var isActive = true
-    @State private var showingEditScreen = false
+    @State private var reuseWords = false
+    @State private var activeSheet: ActiveSheet?
+    @State private var showingAlert = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -28,21 +39,62 @@ struct ContentView: View {
                 .edgesIgnoringSafeArea(.all)
             
             VStack {
-                Text("Timer: \(timeRemaining)")
-                    .font(.largeTitle)
-                    .foregroundColor(.white)
-                    .padding([.horizontal], 20)
-                    .padding([.vertical], 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.black)
-                            .opacity(0.75)
-                    )
+                VStack {
+                    HStack {
+                        Button {
+                            activeSheet = .first
+                        } label: {
+                            Image(systemName: "plus.circle")
+                                .padding()
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(Circle())
+                        }
+                        .padding([.leading], 10)
+                        .foregroundColor(.white)
+                        .font(.largeTitle)
+                        .padding()
+                        
+                        Spacer()
+                        
+                        Text("Timer: \(timeRemaining)")
+                            .font(.largeTitle)
+                            .foregroundColor(.white)
+                            .padding([.horizontal], 20)
+                            .padding([.vertical], 5)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black)
+                                    .opacity(0.75)
+                            )
+                        
+                        Spacer()
+                        
+                        Button {
+                            activeSheet = .second
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .padding()
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(Circle())
+                        }
+                        .padding([.trailing], 10)
+                        .foregroundColor(.white)
+                        .font(.largeTitle)
+                        .padding()
+                    }
+                }
+                .padding([.top], 10)
+                
+                Spacer()
                 
                 ZStack {
                     ForEach(0..<cards.count, id: \.self) { index in
-                        CardView(card: self.cards[index]) {
-                            self.removeCard(at: index)
+                        CardView(card: self.cards[index]) { move in
+                            if move {
+                                self.moveToBack(at: index)
+                            } else {
+                                self.removeCard(at: index)
+                            }
                         }
                         .stacked(at: index, in: self.cards.count)
                         .allowsHitTesting(index == self.cards.count - 1)
@@ -58,20 +110,11 @@ struct ContentView: View {
                         .foregroundColor(.black)
                         .clipShape(Capsule())
                 }
+                
+                Spacer()
             }
             
             VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        self.showingEditScreen = true
-                    } label: {
-                        Image(systemName: "plus.circle")
-                            .padding()
-                            .background(Color.black.opacity(0.7))
-                            .clipShape(Circle())
-                    }
-                }
                 Spacer()
             }
             .foregroundColor(.white)
@@ -84,10 +127,10 @@ struct ContentView: View {
                     HStack {
                         Button {
                             withAnimation {
-                                self.removeCard(at: self.cards.count - 1)
+                                self.moveToBack(at: self.cards.count - 1)
                             }
                         } label: {
-                            Image(systemName: "xmark:circle")
+                            Image(systemName: "xmark.circle")
                                 .padding()
                                 .background(Color.black.opacity(0.7))
                                 .clipShape(Circle())
@@ -120,6 +163,8 @@ struct ContentView: View {
             guard self.isActive else { return }
             if self.timeRemaining > 0 {
                 self.timeRemaining -= 1
+            } else {
+                self.showingAlert = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -131,8 +176,22 @@ struct ContentView: View {
             }
         }
         .onAppear(perform: resetCards)
-        .sheet(isPresented: $showingEditScreen, onDismiss: resetCards) {
-            EditCards()
+        .sheet(item: $activeSheet, onDismiss: resetCards) { item in
+            switch item {
+            case .first:
+                EditCards()
+            case .second:
+                Settings()
+            }
+        }
+        .alert(isPresented: $showingAlert) {
+            let message =
+                cards.count == 1
+                ? "1 word was not guessed"
+                : "\(cards.count) words were not guessed"
+            return Alert(title: Text("Game over"), message: Text(message), dismissButton: .default(Text("OK"), action: {
+                resetCards()
+            }))
         }
     }
     
@@ -142,18 +201,38 @@ struct ContentView: View {
                 self.cards = decoded
             }
         }
+        if let data = UserDefaults.standard.data(forKey: "reuseWords") {
+            if let decoded = try? JSONDecoder().decode(Bool.self, from: data) {
+                self.reuseWords = decoded
+            }
+        }
     }
     
     func resetCards() {
-        timeRemaining = 100
+        timeRemaining = 5
         isActive = true
         loadData()
         cards.shuffle()
     }
     
+    func moveToBack(at index: Int) {
+        guard index >= 0 else { return }
+        
+        let card = cards.remove(at: index)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            cards.insert(card, at: 0)
+        }
+//        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { timer in
+//            cards.insert(card, at: 0)
+//        }
+    }
+    
     func removeCard(at index: Int) {
         guard index >= 0 else { return }
+        
         cards.remove(at: index)
+        
         if cards.isEmpty {
             isActive = false
         }
